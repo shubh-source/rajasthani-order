@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rajasthani Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: 'DM Sans', sans-serif; display: flex; height: 100vh; background: #f7f9fa; color: #1a1714; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: #bc111e; color: white; display: flex; flex-direction: column; box-shadow: 4px 0 20px rgba(0,0,0,0.05); z-index: 10;}
+        .logo { padding: 24px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); background: #a30e19;}
+        .nav-item { padding: 18px 24px; cursor: pointer; border-left: 4px solid transparent; transition: all 0.2s; color: rgba(255,255,255,0.7); font-weight: 500; font-size: 15px;}
+        .nav-item:hover, .nav-item.active { background: #a30e19; color: white; border-left-color: #d4aa55; font-weight: 600;}
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .topbar h1 { margin: 0; font-size: 28px; color: #1a1714; font-family: 'Playfair Display', serif;}
+        
+        /* Dashboard Stats */
+        .grid-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 34px; }
+        .stat-card { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid #e8e4df;}
+        .stat-val { font-size: 32px; font-weight: 700; color: #bc111e; margin-top: 10px; font-family: 'DM Sans', sans-serif;}
+        .stat-label { font-size: 13px; color: #a09a93; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        
+        /* Tables Grid */
+        .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
+        .t-box { background: white; border-radius: 14px; padding: 24px 10px; text-align: center; border: 2px solid #e8e4df; font-weight: 700; font-size: 18px; color: #6b6560; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+        .t-box.occupied { border-color: #d4aa55; background: #fffdf9; color: #bc111e; box-shadow: 0 4px 12px rgba(212, 170, 85, 0.2); transform: translateY(-2px);}
+        
+        /* Data Table */
+        .panel { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); padding: 24px; margin-bottom: 30px; border: 1px solid #e8e4df;}
+        .panel h2 { margin: 0 0 24px 0; font-size: 20px; font-family: 'Playfair Display', serif;}
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 12px 15px; background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        
+        /* Badges & Buttons */
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+        .b-blue { background: #e0f2fe; color: #0284c7; }
+        .b-yellow { background: #fef08a; color: #b45309; }
+        .b-green { background: #dcfce3; color: #166534; }
+        .b-red { background: #ffe4e6; color: #bc111e; }
+
+        .btn-sm { padding: 8px 14px; border-radius: 8px; border: none; background: #bc111e; color: white; cursor: pointer; font-size: 12px; font-weight: 700; transition: 0.2s; box-shadow: 0 2px 6px rgba(188,17,30,0.2);}
+        .btn-sm:hover { background: #9a0914; }
+        .btn-sm.btn-green { background: #16a34a; box-shadow: 0 2px 6px rgba(22,163,74,0.2);}
+        .btn-sm.btn-green:hover { background: #15803d; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        @media print {
+            body > :not(#print-area) { display: none !important; }
+            #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff;}
+            .bill-container { width: 300px; padding: 10px; font-family: monospace; font-size: 12px; color: #000; margin: 0 auto; }
+            .bill-header { text-align: center; margin-bottom: 10px; font-weight: bold;}
+            .bill-logo { font-size: 18px; margin-bottom: 4px; }
+            .bill-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+            .bill-dashed { border-bottom: 1px dashed #000; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f3f0eb;z-index:99999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:white;padding:40px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.1);width:100%;max-width:340px;text-align:center;border:1px solid #e8e4df;">
+    <img src="logo.jpg" alt="Logo" style="height:56px;border-radius:8px;margin-bottom:16px;">
+    <h2 style="margin:0 0 4px;color:#bc111e;font-size:20px;font-family:'Playfair Display',serif;">Admin Access</h2>
+    <p style="margin:0 0 24px;color:#a09a93;font-size:13px;">Rajasthani Sweets Dashboard</p>
+    <input type="text" id="l-user" placeholder="User ID" style="width:100%;padding:12px 14px;margin-bottom:12px;border:1px solid #e8e4df;border-radius:8px;box-sizing:border-box;font-size:15px;outline:none;">
+    <input type="password" id="l-pass" placeholder="Password" style="width:100%;padding:12px 14px;margin-bottom:20px;border:1px solid #e8e4df;border-radius:8px;box-sizing:border-box;font-size:15px;outline:none;">
+    <button onclick="doLogin()" style="width:100%;padding:14px;background:#bc111e;color:white;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;letter-spacing:0.5px;">Login to Dashboard</button>
+  </div>
+</div>
+<script>
+  if(localStorage.getItem('auth_admin')) document.getElementById('login-overlay').style.display='none';
+  async function doLogin() {
+    var u = document.getElementById('l-user').value;
+    var p = document.getElementById('l-pass').value;
+    var r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'admin',user:u,pass:p})});
+    var d = await r.json();
+    if(d.success){localStorage.setItem('auth_admin','yes');document.getElementById('login-overlay').style.display='none';}
+    else alert('Access Denied! Wrong credentials.');
+  }
+</script>
+
+<div id="print-area" style="display:none;"></div>
+
+<div class="sidebar">
+    <div class="logo">
+        <img src="logo.jpg" alt="Logo" style="height: 50px; background: white; padding: 4px; border-radius: 8px;">
+    </div>
+    <div class="nav-item active" onclick="switchNav(this, 'v-dash')">Dashboard</div>
+    <div class="nav-item" onclick="switchNav(this, 'v-orders')">Live Orders</div>
+    <div class="nav-item" onclick="switchNav(this, 'v-tables')">Tables Status</div>
+    <div class="nav-item" onclick="switchNav(this, 'v-users')">Customers</div>
+</div>
+
+<div class="main-content">
+    <div class="topbar">
+        <h1 id="top-title">Dashboard Overview</h1>
+        <div style="color: #64748b; font-weight: 500;" id="clock">Date</div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="v-dash" class="view active">
+        <div class="grid-stats">
+            <div class="stat-card"><div class="stat-label">Total Revenue (Today)</div><div class="stat-val" id="st-rev">₹0</div></div>
+            <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-val" id="st-ord">0</div></div>
+            <div class="stat-card"><div class="stat-label">Pending Payments</div><div class="stat-val" id="st-pend">₹0</div></div>
+            <div class="stat-card"><div class="stat-label">Occupied Tables</div><div class="stat-val" id="st-tab">0</div></div>
+        </div>
+        
+        <div class="panel">
+            <h2>Recent Needs Attention (Ready to Serve / Pending Pay)</h2>
+            <table>
+                <thead><tr><th>Order ID</th><th>Table</th><th>Status</th><th>Payment</th><th>Action</th></tr></thead>
+                <tbody id="dash-action-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- All Orders -->
+    <div id="v-orders" class="view">
+        <div class="panel">
+            <h2>All Orders List</h2>
+            <table>
+                <thead><tr><th>ID</th><th>Time</th><th>Table</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead>
+                <tbody id="all-orders-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tables -->
+    <div id="v-tables" class="view">
+        <div class="panel">
+            <h2>Restaurant Map (15 Tables)</h2>
+            <div class="tables-grid" id="tables-map"></div>
+        </div>
+    </div>
+
+    <!-- Users -->
+    <div id="v-users" class="view">
+        <div class="panel">
+            <h2>Customer Database</h2>
+            <table>
+                <thead><tr><th>Phone</th><th>Name</th><th>Total Orders</th><th>Total Spend</th></tr></thead>
+                <tbody id="users-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const API = '/api';
+    const socket = io();
+    let globalOrders = [];
+    let globalTables = [];
+    let printedOrders = new Set();
+    let isFirstLoad = true;
+    
+    // UI Helpers
+    setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleString(), 1000);
+    function switchNav(el, v) {
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
+        document.getElementById(v).classList.add('active');
+        document.getElementById('top-title').innerText = el.innerText;
+    }
+
+    // Fetches
+    async function loadData() {
+        globalOrders = await fetch(`${API}/orders`).then(r=>r.json());
+        globalTables = await fetch(`${API}/tables`).then(r=>r.json());
+        
+        if (isFirstLoad) {
+            // Ignore orders already paid before we opened the dashboard
+            globalOrders.forEach(o => { if(o.payment_status === 'paid') printedOrders.add(o.id); });
+            isFirstLoad = false;
+        } else {
+            // Auto print any dynamically received 'paid' orders
+            globalOrders.forEach(o => {
+                if(o.payment_status === 'paid' && !printedOrders.has(o.id)) {
+                    printBill(o);
+                }
+            });
+        }
+        
+        updateDashboard();
+        updateOrdersList();
+        updateTablesMap();
+    }
+
+    async function loadUsers() {
+        const users = await fetch(`${API}/users`).then(r=>r.json());
+        document.getElementById('users-body').innerHTML = users.map(u => 
+            `<tr><td>${u.phone}</td><td>${u.name}</td><td>${u.total_orders}</td><td>₹${u.total_spent}</td></tr>`
+        ).join('');
+    }
+
+    // Renderers
+    function updateDashboard() {
+        let rev = 0, ord = globalOrders.length, pend = 0, occ = 0;
+        globalOrders.forEach(o => {
+            if(o.payment_status === 'paid') rev += o.total_amount;
+            if(o.payment_status === 'pending') pend += o.total_amount;
+        });
+        
+        // Count occupied active tables from DB tables list OR derived from orders
+        // Here we rely on DB table_status records
+        occ = globalTables.filter(t => t.status === 'occupied').length;
+
+        document.getElementById('st-rev').innerText = `₹${rev}`;
+        document.getElementById('st-ord').innerText = ord;
+        document.getElementById('st-pend').innerText = `₹${pend}`;
+        document.getElementById('st-tab').innerText = occ;
+
+        // Needs Attention Table
+        const attn = globalOrders.filter(o => o.order_status === 'ready' || (o.order_status === 'served' && o.payment_status === 'pending'));
+        document.getElementById('dash-action-body').innerHTML = attn.map(o => `
+            <tr>
+                <td><b>${o.id}</b></td>
+                <td>Table ${o.table_no}</td>
+                <td>${statusBadge(o.order_status)}</td>
+                <td>${paymentBadge(o.payment_status)}</td>
+                <td>${genActions(o)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function updateOrdersList() {
+        document.getElementById('all-orders-body').innerHTML = globalOrders.map(o => {
+            let itemStr = "Items";
+            try { itemStr = JSON.parse(o.items).length + " items"; } catch(e){}
+            let timeStr = new Date(o.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            return `
+            <tr>
+                <td><b>${o.id}</b></td>
+                <td>${timeStr}</td>
+                <td>Table ${o.table_no}</td>
+                <td>${itemStr}</td>
+                <td>₹${o.total_amount}</td>
+                <td>${statusBadge(o.order_status)}</td>
+                <td>${paymentBadge(o.payment_status, o.payment_method)}</td>
+                <td>${genActions(o)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function updateTablesMap() {
+        // We assume 15 tables total
+        let html = '';
+        for(let i=1; i<=15; i++) {
+            let t = globalTables.find(tobe => tobe.table_no == i);
+            let isOcc = t && t.status === 'occupied';
+            html += `<div class="t-box ${isOcc?'occupied':''}">${i}</div>`;
+        }
+        document.getElementById('tables-map').innerHTML = html;
+    }
+
+    // Component Generators
+    function statusBadge(s) {
+        if(s==='new') return `<span class="badge b-red">NEW</span>`;
+        if(s==='preparing') return `<span class="badge b-yellow">PREPARING</span>`;
+        if(s==='ready') return `<span class="badge b-green">READY</span>`;
+        if(s==='served') return `<span class="badge b-blue">SERVED</span>`;
+        return `<span class="badge">${s}</span>`;
+    }
+    
+    function paymentBadge(s, m) {
+        if(s==='paid') return `<span class="badge b-green">PAID (${m})</span>`;
+        return `<span class="badge b-yellow">PENDING</span>`;
+    }
+
+    function genActions(o) {
+        let h = '';
+        // If ready -> mark served
+        if(o.order_status === 'ready') h += `<button class="btn-sm" onclick="markServed('${o.id}')">Mark Served</button> `;
+        // If pending payment -> Collect cash
+        if(o.payment_status === 'pending' && (o.order_status === 'served' || o.order_status === 'ready')) {
+            h += `<button class="btn-sm btn-green" onclick="collectCash('${o.id}')">Collect Cash</button>`;
+        }
+        return h || '-';
+    }
+
+    // Actions
+    async function markServed(id) {
+        await fetch(`${API}/orders/${id}/status`, {
+            method: 'PATCH', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status: 'served' })
+        });
+    }
+
+    async function collectCash(id) {
+        await fetch(`${API}/orders/${id}/payment`, {
+            method: 'PATCH', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ payment_status: 'paid' })
+        });
+    }
+
+    // Sockets Listeners
+    socket.on('order_update', () => loadData());
+    socket.on('table_update', () => loadData());
+    
+    function printBill(o) {
+        if(printedOrders.has(o.id)) return;
+        printedOrders.add(o.id);
+        
+        let items = [];
+        try{ items = JSON.parse(o.items); }catch(e){}
+        let timeStr = new Date(o.timestamp).toLocaleString();
+        
+        let html = `
+        <div class="bill-container">
+            <div class="bill-header">
+                <div class="bill-logo">RAJASTHANI SWEETS</div>
+                <div>Tompson Ganj, Sitapur</div>
+            </div>
+            <div class="bill-dashed"></div>
+            <div class="bill-row"><span>Order: ${o.id}</span></div>
+            <div class="bill-row"><span>Table: ${o.table_no}</span><span>${timeStr}</span></div>
+            <div class="bill-row"><span>Customer: ${o.user_name}</span><span>${o.phone}</span></div>
+            <div class="bill-dashed"></div>
+            <div class="bill-row" style="font-weight:bold;">
+                <span style="flex:1;">Item</span><span style="width:30px;text-align:center;">Qty</span><span style="width:50px;text-align:right;">Amt</span>
+            </div>
+            <div class="bill-dashed"></div>
+            ${items.map(i => `<div class="bill-row"><span style="flex:1;padding-right:10px;">${i.item.name} (${i.size})</span><span style="width:30px;text-align:center;">${i.qty}</span><span style="width:50px;text-align:right;">${i.price * i.qty}</span></div>`).join('')}
+            <div class="bill-dashed"></div>
+            <div class="bill-row" style="font-weight:bold; font-size:14px;"><span>TOTAL</span><span>Rs. ${o.total_amount}</span></div>
+            <div class="bill-row" style="margin-top:10px;"><span>Payment:</span><span>${o.payment_method.toUpperCase()} - PAID</span></div>
+            <div class="bill-dashed"></div>
+            <div style="text-align:center; margin-top:20px;">Thank you for visiting!</div>
+        </div>`;
+        
+        document.getElementById('print-area').innerHTML = html;
+        window.print();
+    }
+
+    // Boot
+    loadData();
+    loadUsers();
+</script>
+
+</body>
+</html>

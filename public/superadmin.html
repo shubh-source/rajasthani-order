@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Platform Owner Dashboard - Rajasthani Sweets</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    :root {
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --primary: #bc111e;
+      --primary-light: #fef2f2;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 24px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      text-align: center;
+      border: 1px solid #e5e7eb;
+    }
+
+    .stat-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .stat-sub {
+      font-size: 13px;
+      color: #10b981;
+      font-weight: 500;
+    }
+
+    .refresh-btn {
+      display: block;
+      margin: 40px auto;
+      padding: 12px 32px;
+      background: var(--text);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .refresh-btn:hover {
+      opacity: 0.9;
+    }
+
+    @media (max-width: 600px) {
+      .container {margin: 20px auto;}
+    }
+  </style>
+</head>
+<body>
+  <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg, #f3f4f6); z-index:99999; display:flex; align-items:center; justify-content:center;">
+    <div style="background:white; padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); width:100%; max-width:320px; text-align:center;">
+        <h2 style="margin-top:0; color:var(--primary, #bc111e);">Platform Login</h2>
+        <input type="text" id="l-user" placeholder="User ID" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+        <input type="password" id="l-pass" placeholder="Password" style="width:100%; padding:12px; margin-bottom:20px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+        <button onclick="doLogin('super')" style="width:100%; padding:12px; background:var(--primary, #bc111e); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Secure Login</button>
+    </div>
+  </div>
+  <script>
+    if(localStorage.getItem('auth_super')) document.getElementById('login-overlay').style.display = 'none';
+    async function doLogin(role) {
+        let u = document.getElementById('l-user').value;
+        let p = document.getElementById('l-pass').value;
+        let r = await fetch('/api/login', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({role: role, user: u, pass: p})
+        });
+        let d = await r.json();
+        if(d.success) {
+            localStorage.setItem('auth_'+role, 'yes');
+            document.getElementById('login-overlay').style.display = 'none';
+        } else { alert('Access Denied. Invalid credentials!'); }
+    }
+  </script>
+
+  <div class="header">
+    Platform Owner Analytics 📊
+  </div>
+
+  <div class="container">
+    <div class="stats-grid">
+      <!-- Lifetime Revenue Section -->
+      <div class="stat-card">
+        <div class="stat-title">My Total Revenue Earned</div>
+        <div class="stat-value" id="tot-rev">₹0</div>
+        <div class="stat-sub">@ ₹2 per order</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Total Orders Placed</div>
+        <div class="stat-value" id="tot-ord" style="color:var(--text);">0</div>
+        <div class="stat-sub" style="color:var(--text-muted);">Lifetime successful orders</div>
+      </div>
+      
+      <!-- Today's Section -->
+      <div class="stat-card">
+        <div class="stat-title">My Revenue Today</div>
+        <div class="stat-value" id="tod-rev">₹0</div>
+        <div class="stat-sub">Based on today's performance</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Restaurants Total GMV</div>
+        <div class="stat-value" id="tot-gmv" style="color:#d97706;">₹0</div>
+        <div class="stat-sub" style="color:var(--text-muted);">Cumulative food sold</div>
+      </div>
+    </div>
+
+    <button class="refresh-btn" onclick="fetchStats()">Refresh Data 🔄</button>
+  </div>
+
+  <script>
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/super-stats');
+        const data = await res.json();
+        
+        document.getElementById('tot-rev').textContent = '₹' + data.total_revenue;
+        document.getElementById('tot-ord').textContent = data.total_orders;
+        
+        document.getElementById('tod-rev').textContent = '₹' + data.today_revenue;
+        document.getElementById('tot-gmv').textContent = '₹' + data.total_gmv.toLocaleString();
+        
+      } catch (err) {
+        console.error("Failed to load stats", err);
+      }
+    }
+
+    // Load initially
+    fetchStats();
+  </script>
+</body>
+</html>
