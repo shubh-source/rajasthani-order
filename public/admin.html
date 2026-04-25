@@ -139,7 +139,10 @@
     <!-- History -->
     <div id="v-history" class="view">
         <div class="panel">
-            <h2>Order History</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <h2 style="margin:0;">Order History</h2>
+                <button onclick="eraseAllOrders()" class="btn-sm" style="background:#dc2626; color:white; padding:10px 16px;">Erase All Orders</button>
+            </div>
             <table>
                 <thead><tr><th>ID</th><th>Time</th><th>Table</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead>
                 <tbody id="history-orders-body"></tbody>
@@ -335,6 +338,19 @@
             method: 'PATCH', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ payment_status: 'paid' })
         });
+    }
+
+    async function eraseAllOrders() {
+        if(!confirm("⚠️ WARNING: This will permanently delete ALL orders and clear the history. Customer accounts will NOT be deleted. Are you sure you want to proceed?")) return;
+        
+        const r = await fetch(`${API}/orders/reset`, { method: 'DELETE' });
+        const d = await r.json();
+        if(d.success) {
+            alert("All orders have been erased successfully.");
+            loadData();
+        } else {
+            alert("Error: " + d.error);
+        }
     }
 
     // Sockets Listeners

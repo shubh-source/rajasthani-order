@@ -323,6 +323,19 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// 9. Admin: Reset Orders
+app.delete('/api/orders/reset', async (req, res) => {
+    try {
+        await runQuery("DELETE FROM orders");
+        await runQuery("UPDATE tables_status SET status = 'free'");
+        io.emit('order_update', { action: 'reset' });
+        io.emit('table_update', { action: 'reset' });
+        res.json({ success: true, msg: 'All orders erased.' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Socket.io standard connection log
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
