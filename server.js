@@ -262,7 +262,7 @@ app.post('/api/login', (req, res) => {
 app.get('/api/super-stats', async (req, res) => {
     try {
         const total = await allQuery(`SELECT COUNT(*) as count, SUM(total_amount) as gmv FROM orders WHERE payment_status = 'paid'`);
-        const today = await allQuery(`SELECT COUNT(*) as count FROM orders WHERE payment_status = 'paid' AND date(created_at) = date('now')`);
+        const today = await allQuery(`SELECT COUNT(*) as count FROM orders WHERE payment_status = 'paid' AND date(timestamp) = date('now')`);
         
         const cAll = total[0].count || 0;
         const gmvAll = total[0].gmv || 0;
