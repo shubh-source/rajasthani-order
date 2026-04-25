@@ -63,6 +63,8 @@
             .bill-dashed { border-bottom: 1px dashed #000; margin: 10px 0; }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -141,7 +143,11 @@
         <div class="panel">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
                 <h2 style="margin:0;">Order History</h2>
-                <button onclick="eraseAllOrders()" class="btn-sm" style="background:#dc2626; color:white; padding:10px 16px;">Erase All Orders</button>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <input type="month" id="report-month" style="padding:8px 12px; border-radius:8px; border:1px solid #e8e4df; outline:none; font-family:'DM Sans';">
+                    <button onclick="downloadMonthlyPDF()" class="btn-sm" style="background:#2563eb; color:white; padding:10px 16px;">Download PDF Report</button>
+                    <button onclick="eraseAllOrders()" class="btn-sm" style="background:#dc2626; color:white; padding:10px 16px;">Erase All Orders</button>
+                </div>
             </div>
             <table>
                 <thead><tr><th>ID</th><th>Time</th><th>Table</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead>
@@ -351,6 +357,68 @@
         } else {
             alert("Error: " + d.error);
         }
+    }
+
+    function downloadMonthlyPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const monthVal = document.getElementById('report-month').value; // format "YYYY-MM"
+        if(!monthVal) { 
+            alert("Please select a month first to download the report."); 
+            return; 
+        }
+
+        // Filter for completed orders in that month
+        const filtered = globalOrders.filter(o => {
+            if(o.order_status !== 'served' || o.payment_status !== 'paid') return false;
+            let d = new Date(o.timestamp + 'Z');
+            let mStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            return mStr === monthVal;
+        });
+
+        if(filtered.length === 0) {
+            alert(`No completed orders found for ${monthVal}.`);
+            return;
+        }
+
+        let totalRev = 0;
+        const tableData = filtered.map(o => {
+            totalRev += o.total_amount;
+            let d = new Date(o.timestamp + 'Z');
+            let items = "Items";
+            try { items = JSON.parse(o.items).length + " items"; } catch(e){}
+            return [
+                o.id, 
+                d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), 
+                `Table ${o.table_no}`, 
+                items, 
+                o.payment_method.toUpperCase(),
+                `Rs. ${o.total_amount}`
+            ];
+        });
+
+        // Header
+        doc.setFontSize(18);
+        doc.text(`Rajasthani Sweets - Monthly Report`, 14, 22);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100);
+        doc.text(`Month: ${monthVal}`, 14, 30);
+        doc.text(`Total Completed Orders: ${filtered.length}`, 14, 38);
+        doc.setTextColor(188, 17, 30); // Primary red
+        doc.text(`Total Revenue: Rs. ${totalRev}`, 14, 46);
+
+        // Table
+        doc.autoTable({
+            startY: 54,
+            head: [['Order ID', 'Date & Time', 'Table', 'Items', 'Payment', 'Amount']],
+            body: tableData,
+            headStyles: { fillColor: [188, 17, 30] },
+            alternateRowStyles: { fillColor: [247, 249, 250] }
+        });
+
+        doc.save(`Rajasthani_Report_${monthVal}.pdf`);
     }
 
     // Sockets Listeners
