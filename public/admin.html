@@ -96,6 +96,7 @@
     </div>
     <div class="nav-item active" onclick="switchNav(this, 'v-dash')">Dashboard</div>
     <div class="nav-item" onclick="switchNav(this, 'v-orders')">Live Orders</div>
+    <div class="nav-item" onclick="switchNav(this, 'v-history')">History</div>
     <div class="nav-item" onclick="switchNav(this, 'v-tables')">Tables Status</div>
     <div class="nav-item" onclick="switchNav(this, 'v-users')">Customers</div>
 </div>
@@ -127,10 +128,21 @@
     <!-- All Orders -->
     <div id="v-orders" class="view">
         <div class="panel">
-            <h2>All Orders List</h2>
+            <h2>Live Orders</h2>
             <table>
                 <thead><tr><th>ID</th><th>Time</th><th>Table</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead>
                 <tbody id="all-orders-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div id="v-history" class="view">
+        <div class="panel">
+            <h2>Order History</h2>
+            <table>
+                <thead><tr><th>ID</th><th>Time</th><th>Table</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead>
+                <tbody id="history-orders-body"></tbody>
             </table>
         </div>
     </div>
@@ -194,6 +206,7 @@
         
         updateDashboard();
         updateOrdersList();
+        updateHistoryList();
         updateTablesMap();
     }
 
@@ -228,17 +241,18 @@
                 <td><b>${o.id}</b></td>
                 <td>Table ${o.table_no}</td>
                 <td>${statusBadge(o.order_status)}</td>
-                <td>${paymentBadge(o.payment_status)}</td>
+                <td>${paymentBadge(o.payment_status, o.payment_method)}</td>
                 <td>${genActions(o)}</td>
             </tr>
         `).join('');
     }
 
     function updateOrdersList() {
-        document.getElementById('all-orders-body').innerHTML = globalOrders.map(o => {
+        const liveOrders = globalOrders.filter(o => !(o.order_status === 'served' && o.payment_status === 'paid'));
+        document.getElementById('all-orders-body').innerHTML = liveOrders.map(o => {
             let itemStr = "Items";
             try { itemStr = JSON.parse(o.items).length + " items"; } catch(e){}
-            let timeStr = new Date(o.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            let timeStr = new Date(o.timestamp + 'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
             return `
             <tr>
                 <td><b>${o.id}</b></td>
@@ -249,6 +263,25 @@
                 <td>${statusBadge(o.order_status)}</td>
                 <td>${paymentBadge(o.payment_status, o.payment_method)}</td>
                 <td>${genActions(o)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function updateHistoryList() {
+        const historyOrders = globalOrders.filter(o => (o.order_status === 'served' && o.payment_status === 'paid'));
+        document.getElementById('history-orders-body').innerHTML = historyOrders.map(o => {
+            let itemStr = "Items";
+            try { itemStr = JSON.parse(o.items).length + " items"; } catch(e){}
+            let timeStr = new Date(o.timestamp + 'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            return `
+            <tr>
+                <td><b>${o.id}</b></td>
+                <td>${timeStr}</td>
+                <td>Table ${o.table_no}</td>
+                <td>${itemStr}</td>
+                <td>₹${o.total_amount}</td>
+                <td>${statusBadge(o.order_status)}</td>
+                <td>${paymentBadge(o.payment_status, o.payment_method)}</td>
             </tr>`;
         }).join('');
     }
@@ -314,7 +347,7 @@
         
         let items = [];
         try{ items = JSON.parse(o.items); }catch(e){}
-        let timeStr = new Date(o.timestamp).toLocaleString();
+        let timeStr = new Date(o.timestamp + 'Z').toLocaleString();
         
         let html = `
         <div class="bill-container">
