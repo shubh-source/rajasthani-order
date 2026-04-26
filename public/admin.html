@@ -79,13 +79,22 @@
   </div>
 </div>
 <script>
-  if(localStorage.getItem('auth_admin')) document.getElementById('login-overlay').style.display='none';
+  // Check auth via backend cookie
+  fetch('/api/auth/check').then(r => r.json()).then(d => {
+      if(d.success && d.role === 'admin') {
+          document.getElementById('login-overlay').style.display='none';
+      }
+  }).catch(e => console.log('Not authenticated'));
+
   async function doLogin() {
     var u = document.getElementById('l-user').value;
     var p = document.getElementById('l-pass').value;
     var r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'admin',user:u,pass:p})});
     var d = await r.json();
-    if(d.success){localStorage.setItem('auth_admin','yes');document.getElementById('login-overlay').style.display='none';}
+    if(d.success){
+        document.getElementById('login-overlay').style.display='none';
+        loadData();
+    }
     else alert('Access Denied! Wrong credentials.');
   }
 </script>
@@ -197,14 +206,22 @@
 
     // Fetches
     async function loadData() {
-        globalOrders = await fetch(`${API}/orders`).then(r=>r.json());
-        globalTables = await fetch(`${API}/tables`).then(r=>r.json());
-        
-        if (isFirstLoad) {
-            // Ignore orders already paid before we opened the dashboard
-            globalOrders.forEach(o => { if(o.payment_status === 'paid') printedOrders.add(o.id); });
-            isFirstLoad = false;
-        } else {
+        try {
+            const ordRes = await fetch(`${API}/orders`);
+            if(ordRes.status === 401) {
+                document.getElementById('login-overlay').style.display='flex';
+                return;
+            }
+            globalOrders = await ordRes.json();
+            
+            const tabRes = await fetch(`${API}/tables`);
+            globalTables = await tabRes.json();
+            
+            if (isFirstLoad) {
+                // Ignore orders already paid before we opened the dashboard
+                globalOrders.forEach(o => { if(o.payment_status === 'paid') printedOrders.add(o.id); });
+                isFirstLoad = false;
+            } else {
             // Auto print any dynamically received 'paid' orders
             globalOrders.forEach(o => {
                 if(o.payment_status === 'paid' && !printedOrders.has(o.id)) {
@@ -350,9 +367,11 @@
         if(!confirm("⚠️ WARNING: This will permanently delete ALL orders and clear the history. Customer accounts will NOT be deleted. Are you sure you want to proceed?")) return;
         
         const r = await fetch(`${API}/orders/reset`, { method: 'DELETE' });
+        if(r.status === 401) return alert("Unauthorized");
         const d = await r.json();
         if(d.success) {
             alert("All orders have been erased successfully.");
+            printedOrders.clear();
             loadData();
         } else {
             alert("Error: " + d.error);

@@ -100,7 +100,7 @@
   </style>
 </head>
 <body>
-  <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg, #f3f4f6); z-index:99999; display:flex; align-items:center; justify-content:center;">
+  <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:99999; display:flex; align-items:center; justify-content:center;">
     <div style="background:white; padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); width:100%; max-width:320px; text-align:center;">
         <h2 style="margin-top:0; color:var(--primary, #bc111e);">Platform Login</h2>
         <input type="text" id="l-user" placeholder="User ID" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
@@ -109,7 +109,12 @@
     </div>
   </div>
   <script>
-    if(localStorage.getItem('auth_super')) document.getElementById('login-overlay').style.display = 'none';
+    fetch('/api/auth/check').then(r => r.json()).then(d => {
+        if(d.success && d.role === 'super') {
+            document.getElementById('login-overlay').style.display = 'none';
+        }
+    }).catch(e => console.log('Not authenticated'));
+
     async function doLogin(role) {
         let u = document.getElementById('l-user').value;
         let p = document.getElementById('l-pass').value;
@@ -119,8 +124,8 @@
         });
         let d = await r.json();
         if(d.success) {
-            localStorage.setItem('auth_'+role, 'yes');
             document.getElementById('login-overlay').style.display = 'none';
+            fetchStats();
         } else { alert('Access Denied. Invalid credentials!'); }
     }
   </script>
@@ -165,6 +170,10 @@
     async function fetchStats() {
       try {
         const res = await fetch('/api/super-stats');
+        if(res.status === 401) {
+            document.getElementById('login-overlay').style.display = 'flex';
+            return;
+        }
         const data = await res.json();
         
         document.getElementById('tot-rev').textContent = '₹' + data.total_revenue;

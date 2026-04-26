@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const http = require('http');
@@ -6,6 +7,8 @@ const cors = require('cors');
 const path = require('path');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,15 +16,30 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const RAZORPAY_KEY_ID = 'rzp_test_SZlNsaYYbenJQA';
-const RAZORPAY_KEY_SECRET = 'r8l9u3RlbXAvciop0eexonVi';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_SZlNsaYYbenJQA';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'r8l9u3RlbXAvciop0eexonVi';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
 
 const razorpay = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET
 });
+
+// Auth Middleware
+const authMiddleware = (req, res, next) => {
+    const token = req.cookies.auth_token;
+    if (!token) return res.status(401).json({ error: 'Unauthorized. Please login.' });
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (e) {
+        res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+};
 
 // Initialize Database
 const db = new sqlite3.Database('./restaurant.db', (err) => {
@@ -100,18 +118,36 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// 1.b Get Config (Frontend)
+app.get('/api/config', (req, res) => {
+    res.json({ razorpay_key_id: RAZORPAY_KEY_ID });
+});
+
+// 1.c Auth Check
+app.get('/api/auth/check', authMiddleware, (req, res) => {
+    res.json({ success: true, role: req.user.role });
+});
+
 // 2. Orders: Place Order
 app.post('/api/orders', async (req, res) => {
     const { id, phone, user_name, table_no, items, total_amount, payment_method, payment_status } = req.body;
 
-    // Order structure validation could go here
+    // Input Sanitization
+    if (!id || !phone || !table_no || !items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "Missing required fields or invalid items" });
+    }
+    if (!/^[0-9+\-\s()]+$/.test(phone)) {
+        return res.status(400).json({ error: "Invalid phone number format" });
+    }
+
     const itemsJson = JSON.stringify(items);
+    const timestampISO = new Date().toISOString();
 
     try {
         await runQuery(
-            `INSERT INTO orders (id, phone, user_name, table_no, items, total_amount, payment_method, payment_status, order_status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')`,
-            [id, phone, user_name, table_no, itemsJson, total_amount, payment_method, payment_status || 'pending']
+            `INSERT INTO orders (id, phone, user_name, table_no, items, total_amount, payment_method, payment_status, order_status, timestamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?)`,
+            [id, phone, user_name, table_no, itemsJson, total_amount, payment_method, payment_status || 'pending', timestampISO]
         );
 
         // Update table status to occupied
@@ -141,7 +177,7 @@ app.get('/api/orders/user/:phone', async (req, res) => {
 });
 
 // 4. Orders: Get All (Admin / Kitchen)
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', authMiddleware, async (req, res) => {
     try {
         const rows = await allQuery('SELECT * FROM orders ORDER BY timestamp DESC');
         res.json(rows);
@@ -151,7 +187,7 @@ app.get('/api/orders', async (req, res) => {
 });
 
 // 5. Orders: Update Status (Kitchen: new -> preparing -> ready | Admin: ready -> served)
-app.patch('/api/orders/:id/status', async (req, res) => {
+app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
     const { status } = req.body;
     const { id } = req.params;
 
@@ -176,7 +212,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 });
 
 // 6. Orders: Update Payment (Admin marks Pay Later as Paid)
-app.patch('/api/orders/:id/payment', async (req, res) => {
+app.patch('/api/orders/:id/payment', authMiddleware, async (req, res) => {
     const { payment_status } = req.body;
     const { id } = req.params;
 
@@ -244,14 +280,16 @@ app.post('/api/pay/verify', async (req, res) => {
 });
 
 const CREDENTIALS = {
-    admin: { user: "admin", pass: "raj@123" },
-    kitchen: { user: "chef", pass: "food@456" },
-    super: { user: "super", pass: "boss@789" }
+    admin: { user: process.env.ADMIN_USER || "admin", pass: process.env.ADMIN_PASS || "raj@123" },
+    kitchen: { user: process.env.KITCHEN_USER || "chef", pass: process.env.KITCHEN_PASS || "food@456" },
+    super: { user: process.env.SUPER_USER || "super", pass: process.env.SUPER_PASS || "boss@789" }
 };
 
 app.post('/api/login', (req, res) => {
     const { role, user, pass } = req.body;
     if (CREDENTIALS[role] && CREDENTIALS[role].user === user && CREDENTIALS[role].pass === pass) {
+        const token = jwt.sign({ role }, JWT_SECRET, { expiresIn: '24h' });
+        res.cookie('auth_token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
         res.json({ success: true });
     } else {
         res.json({ success: false });
@@ -259,7 +297,7 @@ app.post('/api/login', (req, res) => {
 });
 
 // --- SUPER ADMIN REPORTING -- 
-app.get('/api/super-stats', async (req, res) => {
+app.get('/api/super-stats', authMiddleware, async (req, res) => {
     try {
         const total = await allQuery(`SELECT COUNT(*) as count, SUM(total_amount) as gmv FROM orders WHERE payment_status = 'paid'`);
         const today = await allQuery(`SELECT COUNT(*) as count FROM orders WHERE payment_status = 'paid' AND date(timestamp) = date('now')`);
@@ -294,7 +332,7 @@ async function freeTableIfNoActiveOrders(table_no) {
 }
 
 // 7. Tables: Get All
-app.get('/api/tables', async (req, res) => {
+app.get('/api/tables', authMiddleware, async (req, res) => {
     try {
         const rows = await allQuery('SELECT * FROM tables_status');
         res.json(rows);
@@ -304,7 +342,7 @@ app.get('/api/tables', async (req, res) => {
 });
 
 // 8. Users: Get All
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', authMiddleware, async (req, res) => {
     try {
         const rows = await allQuery('SELECT * FROM users ORDER BY created_at DESC');
 
@@ -324,7 +362,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 // 9. Admin: Reset Orders
-app.delete('/api/orders/reset', async (req, res) => {
+app.delete('/api/orders/reset', authMiddleware, async (req, res) => {
     try {
         await runQuery("DELETE FROM orders");
         await runQuery("UPDATE tables_status SET status = 'free'");

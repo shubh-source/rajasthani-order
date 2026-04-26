@@ -1,3 +1,11 @@
+require('dotenv').config();
+
+if (process.env.ALLOW_DB_RESET !== 'true') {
+    console.error("⚠️ WARNING: DB reset is disabled in production.");
+    console.error("Set ALLOW_DB_RESET=true in your .env file to proceed.");
+    process.exit(1);
+}
+
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('./restaurant.db', (err) => {
     if (err) {

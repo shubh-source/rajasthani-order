@@ -57,14 +57,22 @@
   </div>
 </div>
 <script>
-  if(localStorage.getItem('auth_kitchen')) document.getElementById('login-overlay').style.display='none';
+  fetch('/api/auth/check').then(r => r.json()).then(d => {
+      if(d.success && d.role === 'kitchen') {
+          document.getElementById('login-overlay').style.display='none';
+      }
+  }).catch(e => console.log('Not authenticated'));
+
   async function doLogin() {
     var u = document.getElementById('l-user').value;
     var p = document.getElementById('l-pass').value;
     var r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'kitchen',user:u,pass:p})});
     var d = await r.json();
-    if(d.success){localStorage.setItem('auth_kitchen','yes');document.getElementById('login-overlay').style.display='none';}
-    else alert('Access Denied!');
+    if(d.success){
+        document.getElementById('login-overlay').style.display='none';
+        loadOrders();
+    }
+    else alert('Access Denied! Wrong credentials.');
   }
 </script>
 
@@ -110,7 +118,12 @@
     document.getElementById('h-date').valueAsDate = new Date();
 
     async function loadOrders() {
-        const allOrders = await fetch(`${API}/orders`).then(r => r.json());
+        const res = await fetch(`${API}/orders`);
+        if(res.status === 401) {
+            document.getElementById('login-overlay').style.display='flex';
+            return;
+        }
+        const allOrders = await res.json();
         allGlobalOrders = allOrders;
         // Only show New and Preparing for Kitchen, sort ASC (oldest first)
         orders = allOrders.filter(o => o.order_status === 'new' || o.order_status === 'preparing')

@@ -1670,6 +1670,11 @@
           var oid = data.order ? data.order.id : orderId;
 
           if (payMethod === 'online') {
+            // Fetch Razorpay Config
+            const configRes = await fetch('/api/config');
+            const configData = await configRes.json();
+            const rzpKeyId = configData.razorpay_key_id;
+
             // Razorpay Online Flow
             const payRes = await fetch('/api/pay/create', {
               method: 'POST',
@@ -1684,7 +1689,7 @@
             }
 
             var options = {
-              key: "rzp_test_SZlNsaYYbenJQA", // Replace with your backend test key
+              key: rzpKeyId, // Dynamic backend key
               amount: tot * 100,
               currency: "INR",
               name: "Rajasthani Sweets",
@@ -1764,7 +1769,7 @@
 
       function openHistory() {
         document.getElementById('history-modal').classList.add('open');
-        document.getElementById('history-inner').innerHTML = '<div class="sheet-title">My Orders & Bills</div><div style="text-align:center; padding: 20px; color: var(--text3);">Loading...</div>';
+        document.getElementById('history-inner').innerHTML = '<div class="sheet-title" style="display:flex; justify-content:space-between; align-items:center;">My Orders & Bills <button onclick="document.getElementById(\'history-modal\').classList.remove(\'open\')" style="background:none;border:none;font-size:24px;color:var(--text);cursor:pointer;">&times;</button></div><div style="text-align:center; padding: 20px; color: var(--text3);">Loading...</div>';
         fetchOrderHistory();
       }
 
@@ -1778,11 +1783,11 @@
           return;
         }
 
-        let html = '<div class="sheet-title">My Orders & Bills</div><div style="margin-top:10px;">';
+        let html = '<div class="sheet-title" style="display:flex; justify-content:space-between; align-items:center;">My Orders & Bills <button onclick="document.getElementById(\'history-modal\').classList.remove(\'open\')" style="background:none;border:none;font-size:24px;color:var(--text);cursor:pointer;">&times;</button></div><div style="margin-top:10px;">';
         orders.forEach(o => {
           let items = [];
           try { items = JSON.parse(o.items); } catch (e) { }
-          let timeStr = new Date(o.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          let timeStr = new Date(o.timestamp + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
           let statusBadge = `<span style="background:var(--bg); padding:3px 8px; border-radius:10px; font-size:10px; border:1px solid var(--border); font-weight:600;">${o.order_status.toUpperCase()}</span>`;
           if (o.order_status === 'served') statusBadge = `<span style="background:var(--green-bg); color:var(--green); padding:3px 8px; border-radius:10px; font-size:10px; font-weight:600;">SERVED</span>`;
