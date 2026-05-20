@@ -312,8 +312,9 @@ const CREDENTIALS = {
 app.post('/api/login', (req, res) => {
     const { role, user, pass } = req.body;
     if (CREDENTIALS[role] && CREDENTIALS[role].user === user && CREDENTIALS[role].pass === pass) {
-        const token = jwt.sign({ role }, JWT_SECRET, { expiresIn: '30d' });
-        res.cookie('auth_token', token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
+        const token = jwt.sign({ role }, JWT_SECRET, { expiresIn: '12h' });
+        // No maxAge = session cookie (expires when browser closes) = SECURE
+        res.cookie('auth_token', token, { httpOnly: true, sameSite: 'lax' });
         res.json({ success: true });
     } else {
         res.json({ success: false });
