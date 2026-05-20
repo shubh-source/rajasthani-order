@@ -298,7 +298,7 @@
         document.getElementById('all-orders-body').innerHTML = liveOrders.map(o => {
             let itemStr = "Items";
             try { itemStr = JSON.parse(o.items).length + " items"; } catch(e){}
-            let timeStr = new Date(o.timestamp + 'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            let timeStr = new Date(o.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
             return `
             <tr>
                 <td><b>${o.id}</b></td>
@@ -318,7 +318,7 @@
         document.getElementById('history-orders-body').innerHTML = historyOrders.map(o => {
             let itemStr = "Items";
             try { itemStr = JSON.parse(o.items).length + " items"; } catch(e){}
-            let timeStr = new Date(o.timestamp + 'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            let timeStr = new Date(o.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
             return `
             <tr>
                 <td><b>${o.id}</b></td>
@@ -411,7 +411,7 @@
         // Filter for completed orders in that month
         const filtered = globalOrders.filter(o => {
             if(o.order_status !== 'served' || o.payment_status !== 'paid') return false;
-            let d = new Date(o.timestamp + 'Z');
+            let d = new Date(o.timestamp);
             let mStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
             return mStr === monthVal;
         });
@@ -424,7 +424,7 @@
         let totalRev = 0;
         const tableData = filtered.map(o => {
             totalRev += o.total_amount;
-            let d = new Date(o.timestamp + 'Z');
+            let d = new Date(o.timestamp);
             let items = "Items";
             try { items = JSON.parse(o.items).length + " items"; } catch(e){}
             return [
@@ -470,7 +470,7 @@
         
         let items = [];
         try{ items = JSON.parse(o.items); }catch(e){}
-        let timeStr = new Date(o.timestamp + 'Z').toLocaleString();
+        let timeStr = new Date(o.timestamp).toLocaleString();
         
         let html = `
         <div class="bill-container">
