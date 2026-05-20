@@ -87,7 +87,7 @@ const allQuery = async (sql, params = []) => {
             name TEXT,
             total_spent REAL DEFAULT 0,
             total_orders INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )`);
 
         await runQuery(`CREATE TABLE IF NOT EXISTS orders (
@@ -100,13 +100,18 @@ const allQuery = async (sql, params = []) => {
             payment_method TEXT,
             payment_status TEXT,
             order_status TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )`);
 
         await runQuery(`CREATE TABLE IF NOT EXISTS tables_status (
             table_no TEXT PRIMARY KEY,
             status TEXT
         )`);
+
+        // Migrate existing columns to TIMESTAMPTZ for correct timezone handling
+        await pool.query(`ALTER TABLE orders ALTER COLUMN timestamp TYPE TIMESTAMPTZ USING timestamp AT TIME ZONE 'UTC'`).catch(() => {});
+        await pool.query(`ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'`).catch(() => {});
+
         console.log("PostgreSQL tables checked/created.");
     } catch(err) {
         console.error("Error creating tables:", err.message);
@@ -307,8 +312,8 @@ const CREDENTIALS = {
 app.post('/api/login', (req, res) => {
     const { role, user, pass } = req.body;
     if (CREDENTIALS[role] && CREDENTIALS[role].user === user && CREDENTIALS[role].pass === pass) {
-        const token = jwt.sign({ role }, JWT_SECRET, { expiresIn: '24h' });
-        res.cookie('auth_token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+        const token = jwt.sign({ role }, JWT_SECRET, { expiresIn: '30d' });
+        res.cookie('auth_token', token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
         res.json({ success: true });
     } else {
         res.json({ success: false });

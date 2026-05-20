@@ -127,7 +127,8 @@
         allGlobalOrders = allOrders;
         // Only show New and Preparing for Kitchen, sort ASC (oldest first)
         orders = allOrders.filter(o => o.order_status === 'new' || o.order_status === 'preparing')
-                          .sort((a,b) => new Date(a.timestamp + 'Z') - new Date(b.timestamp + 'Z'));
+                          .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+
         renderBoard();
         if(document.getElementById('history-modal').style.display === 'flex') {
             renderHistory();
