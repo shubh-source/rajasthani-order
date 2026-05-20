@@ -19,9 +19,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_SZlNsaYYbenJQA';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'r8l9u3RlbXAvciop0eexonVi';
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const razorpay = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
@@ -280,9 +280,9 @@ app.post('/api/pay/verify', async (req, res) => {
 });
 
 const CREDENTIALS = {
-    admin: { user: process.env.ADMIN_USER || "admin", pass: process.env.ADMIN_PASS || "raj@123" },
-    kitchen: { user: process.env.KITCHEN_USER || "chef", pass: process.env.KITCHEN_PASS || "food@456" },
-    super: { user: process.env.SUPER_USER || "super", pass: process.env.SUPER_PASS || "boss@789" }
+    admin: { user: process.env.ADMIN_USER, pass: process.env.ADMIN_PASS },
+    kitchen: { user: process.env.KITCHEN_USER, pass: process.env.KITCHEN_PASS },
+    super: { user: process.env.SUPER_USER, pass: process.env.SUPER_PASS }
 };
 
 app.post('/api/login', (req, res) => {

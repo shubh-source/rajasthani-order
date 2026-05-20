@@ -234,6 +234,9 @@
         updateOrdersList();
         updateHistoryList();
         updateTablesMap();
+        } catch (e) {
+            console.error("Error loading data:", e);
+        }
     }
 
     async function loadUsers() {
