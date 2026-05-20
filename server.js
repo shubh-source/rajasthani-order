@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -42,57 +42,76 @@ const authMiddleware = (req, res, next) => {
 };
 
 // Initialize Database
-const db = new sqlite3.Database('./restaurant.db', (err) => {
-    if (err) console.error(err.message);
-    else console.log('Connected to the SQLite database.');
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 });
+
+pool.connect((err) => {
+    if (err) console.error("DB connection error:", err.message);
+    else console.log('Connected to the PostgreSQL database.');
+});
+
+// Helper for sending SQLite queries that return a promise, translated for Postgres
+function convertSqliteToPg(sql) {
+    let index = 1;
+    return sql.replace(/\?/g, () => `$${index++}`);
+}
+
+const runQuery = async (sql, params = []) => {
+    const pgSql = convertSqliteToPg(sql);
+    try {
+        const result = await pool.query(pgSql, params);
+        return { lastID: null }; // Postgres doesn't easily return lastID without RETURNING clause, but our app mainly uses UUIDs
+    } catch (err) {
+        throw err;
+    }
+};
+
+const allQuery = async (sql, params = []) => {
+    const pgSql = convertSqliteToPg(sql);
+    try {
+        const { rows } = await pool.query(pgSql, params);
+        return rows;
+    } catch (err) {
+        throw err;
+    }
+};
 
 // Create tables
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        phone TEXT UNIQUE,
-        name TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+(async () => {
+    try {
+        await runQuery(`CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            phone TEXT UNIQUE,
+            name TEXT,
+            total_spent REAL DEFAULT 0,
+            total_orders INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS orders (
-        id TEXT PRIMARY KEY,
-        phone TEXT,
-        user_name TEXT,
-        table_no TEXT,
-        items TEXT,
-        total_amount REAL,
-        payment_method TEXT,
-        payment_status TEXT,
-        order_status TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        await runQuery(`CREATE TABLE IF NOT EXISTS orders (
+            id TEXT PRIMARY KEY,
+            phone TEXT,
+            user_name TEXT,
+            table_no TEXT,
+            items TEXT,
+            total_amount REAL,
+            payment_method TEXT,
+            payment_status TEXT,
+            order_status TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS tables_status (
-        table_no TEXT PRIMARY KEY,
-        status TEXT
-    )`);
-});
-
-// Helper for sending SQLite queries that return a promise
-const runQuery = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-            if (err) reject(err);
-            else resolve(this);
-        });
-    });
-};
-
-const allQuery = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-};
+        await runQuery(`CREATE TABLE IF NOT EXISTS tables_status (
+            table_no TEXT PRIMARY KEY,
+            status TEXT
+        )`);
+        console.log("PostgreSQL tables checked/created.");
+    } catch(err) {
+        console.error("Error creating tables:", err.message);
+    }
+})();
 
 // --- API ROUTES ---
 
@@ -151,7 +170,7 @@ app.post('/api/orders', async (req, res) => {
         );
 
         // Update table status to occupied
-        await runQuery(`INSERT OR REPLACE INTO tables_status (table_no, status) VALUES (?, 'occupied')`, [table_no]);
+        await runQuery(`INSERT INTO tables_status (table_no, status) VALUES (?, 'occupied') ON CONFLICT (table_no) DO UPDATE SET status = EXCLUDED.status`, [table_no]);
 
         // Fetch the inserted order
         const newOrder = await allQuery('SELECT * FROM orders WHERE id = ?', [id]);
@@ -300,7 +319,7 @@ app.post('/api/login', (req, res) => {
 app.get('/api/super-stats', authMiddleware, async (req, res) => {
     try {
         const total = await allQuery(`SELECT COUNT(*) as count, SUM(total_amount) as gmv FROM orders WHERE payment_status = 'paid'`);
-        const today = await allQuery(`SELECT COUNT(*) as count FROM orders WHERE payment_status = 'paid' AND date(timestamp) = date('now')`);
+        const today = await allQuery(`SELECT COUNT(*) as count FROM orders WHERE payment_status = 'paid' AND DATE(timestamp) = CURRENT_DATE`);
         
         const cAll = total[0].count || 0;
         const gmvAll = total[0].gmv || 0;
@@ -364,7 +383,7 @@ app.get('/api/users', authMiddleware, async (req, res) => {
 // 9. Admin: Reset Orders
 app.delete('/api/orders/reset', authMiddleware, async (req, res) => {
     try {
-        await runQuery("DELETE FROM orders");
+        await runQuery("TRUNCATE TABLE orders");
         await runQuery("UPDATE tables_status SET status = 'free'");
         io.emit('order_update', { action: 'reset' });
         io.emit('table_update', { action: 'reset' });
